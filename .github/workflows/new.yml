@@ -1,0 +1,42 @@
+name: Build Dopamine-roothide
+
+on:
+  workflow_dispatch: # 保留手动触发按钮
+  push:
+    branches: [ "3.x" ] # 针对你日志中显示的 3.x 分支自动触发
+
+jobs:
+  build:
+    runs-on: macos-14 # 使用 macOS 14 (Xcode 15) 兼容性更好
+
+    steps:
+      - name: 1. 检出 Dopamine 源码及子模块
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: 2. 检出 Theos 编译环境 (越狱项目必备)
+        uses: actions/checkout@v4
+        with:
+          repository: theos/theos
+          ref: master
+          path: theos
+          submodules: recursive
+
+      - name: 3. 安装系统依赖工具
+        run: |
+          brew install ldid make
+
+      - name: 4. 使用 Theos 编译 Dopamine
+        run: |
+          # 声明 Theos 环境变量路径
+          export THEOS=$GITHUB_WORKSPACE/theos
+          # 使用 gmake 多线程编译，并指定 NIGHTLY 变量
+          gmake -j$(sysctl -n hw.ncpu) NIGHTLY=1
+
+      - name: 5. 上传最终的 TIPA 安装包
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dopamine-roothide-Package
+          # Theos 编译完成后，包默认会生成在根目录的 Packages 文件夹下
+          path: Packages/*.tipa
